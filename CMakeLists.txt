@@ -32,7 +32,7 @@ project (STEPToPoints LANGUAGES CXX VERSION 2025.0.0)
 
 set(CMAKE_PREFIX_PATH "${OPENCASCADE_PREFIX};${CMAKE_PREFIX_PATH}")
 
-find_package(OpenCASCADE REQUIRED)
+find_package(OpenCASCADE QUIET)
 if(NOT OpenCASCADE_FOUND)
   message(STATUS "OpenCASCADE not found - installing via CMake fetchcontent")
   include(FetchContent)
