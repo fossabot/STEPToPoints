@@ -11,6 +11,17 @@ The program uses cxxops (https://github.com/jarro2783/cxxopts) for parsing the c
  * CMake installation (https://cmake.org)
  * OpenCASCADE installation (https://old.opencascade.com/content/latest-release, download needs registration)
 
+For OpenCASCADE if it is not found it will be fetched and built via CMake FetchContent. 
+For that, you need the following additional libs installed:
+ * tcl-dev
+ * tk-dev
+
+On Linux you can install these packages via the package manager, e.g. on ubuntu:
+
+```bash
+sudo apt-get install tcl-dev tk-dev
+```
+
 ## Usage
 Listing the contents (solids) of a STEP file:
 
