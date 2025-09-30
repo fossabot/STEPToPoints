@@ -33,6 +33,18 @@ project (STEPToPoints LANGUAGES CXX VERSION 2025.0.0)
 set(CMAKE_PREFIX_PATH "${OPENCASCADE_PREFIX};${CMAKE_PREFIX_PATH}")
 
 find_package(OpenCASCADE REQUIRED)
+if(NOT OpenCASCADE_FOUND)
+  message(STATUS "OpenCASCADE not found - installing via CMake fetchcontent")
+  include(FetchContent)
+  FetchContent_Declare(
+    OpenCASCADE
+    GIT_REPOSITORY https://github.com/Open-Cascade-SAS/OCCT.git
+    GIT_TAG V7_9_1)
+
+  FetchContent_MakeAvailable(OpenCASCADE)
+else()
+    message(STATUS "OpenCASCADE found: ${OpenCASCADE_VERSION}")
+endif()
 
 add_executable(STEPToPoints src/STEPToPoints.cpp)
 
