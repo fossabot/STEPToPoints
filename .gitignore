@@ -1,0 +1,49 @@
+# Build directories
+**/build*/
+dist
+
+# CMake files
+src/cmake-build-release/CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+Makefile
+progress.marks
+
+# Compiled dynamic libraries
+*.dylib
+*.so
+*.dll
+
+# Compiled object files
+*.o
+*.obj
+
+# Generated files
+*.aux
+*.log
+*.out
+*.pyg
+*.synctex.gz
+*.toc
+*.pdf
+*.zip
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# IDE specific files
+.idea/
+.vscode/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Other
+*.DS_Store
+*.directory
