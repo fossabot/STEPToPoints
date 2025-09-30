@@ -34,7 +34,7 @@ set(CMAKE_PREFIX_PATH "${OPENCASCADE_PREFIX};${CMAKE_PREFIX_PATH}")
 
 find_package(OpenCASCADE REQUIRED)
 
-add_executable(STEPToPoints STEPToPoints.cpp)
+add_executable(STEPToPoints src/STEPToPoints.cpp)
 
 target_link_libraries(STEPToPoints ${OpenCASCADE_FoundationClasses_LIBRARIES} ${OpenCASCADE_ModelingData_LIBRARIES} ${OpenCASCADE_ModelingAlgorithms_LIBRARIES} ${OpenCASCADE_Visualization_LIBRARIES} ${OpenCASCADE_ApplicationFramework_LIBRARIES} ${OpenCASCADE_DataExchange_LIBRARIES} ${OpenCASCADE_Draw_LIBRARIES})
 
