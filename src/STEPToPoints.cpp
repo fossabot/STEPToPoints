@@ -69,17 +69,23 @@ void getNamedSolids(const TopLoc_Location& location,
                     std::vector<NamedSolid>& namedSolids)
 {
     TDF_Label referredLabel{label};
-    if(shapeTool->IsReference(label))
-        shapeTool->GetReferredShape(label, referredLabel);
+    if(XCAFDoc_ShapeTool::IsReference(label))
+    {
+        XCAFDoc_ShapeTool::GetReferredShape(label, referredLabel);
+    }
     std::string name;
-    Handle(TDataStd_Name) shapeName;
-    if(referredLabel.FindAttribute(TDataStd_Name::GetID(), shapeName))
+
+    if(Handle(TDataStd_Name) shapeName; referredLabel.FindAttribute(TDataStd_Name::GetID(), shapeName))
+    {
         name = TCollection_AsciiString(shapeName->Get()).ToCString();
+    }
     if(name.empty())
+    {
         name = std::to_string(id++);
+    }
     std::string fullName{prefix + "/" + name};
 
-    TopLoc_Location localLocation = location * shapeTool->GetLocation(label);
+    const TopLoc_Location localLocation = location * XCAFDoc_ShapeTool::GetLocation(label);
     TDF_LabelSequence components;
     if(XCAFDoc_ShapeTool::GetComponents(referredLabel, components))
     {
@@ -91,7 +97,7 @@ void getNamedSolids(const TopLoc_Location& location,
     else
     {
         TopoDS_Shape shape;
-        shapeTool->GetShape(referredLabel, shape);
+        XCAFDoc_ShapeTool::GetShape(referredLabel, shape);
         if(shape.ShapeType() == TopAbs_SOLID)
         {
             BRepBuilderAPI_Transform transform(shape, localLocation, Standard_True);
@@ -104,12 +110,14 @@ void read(const std::string& inFile, std::vector<NamedSolid>& namedSolids)
 {
     Handle(TDocStd_Document) document;
     Handle(XCAFApp_Application) application = XCAFApp_Application::GetApplication();
+    std::cout << "Reading " << inFile << "\n";
     application->NewDocument(inFile.c_str(), document);
     STEPCAFControl_Reader reader;
     reader.SetNameMode(true);
-    IFSelect_ReturnStatus stat{reader.ReadFile(inFile.c_str())};
-    if(stat != IFSelect_RetDone || !reader.Transfer(document))
-        throw std::logic_error{std::string{"Could not read '"} + inFile + "'"};
+    if(const auto stat{reader.ReadFile(inFile.c_str())}; stat != IFSelect_RetDone || !reader.Transfer(document))
+    {
+        throw std::invalid_argument{std::format("Could not read {}", inFile)};
+    }
     Handle(XCAFDoc_ShapeTool) shapeTool{XCAFDoc_DocumentTool::ShapeTool(document->Main())};
     TDF_LabelSequence topLevelShapes;
     shapeTool->GetFreeShapes(topLevelShapes);
@@ -142,7 +150,7 @@ void writeXYZ(const std::string& outFile, const std::vector<Point>& points)
 
 struct PointLessOperator
 {
-    PointLessOperator(const double e)
+    explicit PointLessOperator(const double e)
         : eps{e} {}
 
     bool operator()(const Point& lhs, const Point& rhs) const
@@ -174,8 +182,8 @@ auto makeUniquePoints(const std::vector<Point>& points, const double epsilon)
 auto createScanLines(const TopoDS_Shape& shape, const double sampling) -> std::vector<gp_Lin>
 {
     std::vector<gp_Lin> result;
-    std::array<double, 3> min;
-    std::array<double, 3> max;
+    std::array<double, 3> min{};
+    std::array<double, 3> max{};
     Bnd_Box box;
     BRepBndLib::Add(shape, box);
     box.Get(min[0], min[1], min[2], max[0], max[1], max[2]);
@@ -208,24 +216,34 @@ auto surfaceNormal(const TopoDS_Face& face, const double u, const double v, cons
     GeomLProp_SLProps props{surface, u, v, 1, resolution};
     gp_Dir normal{props.Normal()};
     if(face.Orientation() == TopAbs_REVERSED)
+    {
         normal.Reverse();
+    }
     return normal;
 }
 
 auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vector<Point>
 {
     std::vector<Point> result;
-    std::vector<gp_Lin> scanLines{createScanLines(shape, sampling)};
+    std::vector<gp_Lin> scanLines = createScanLines(shape, sampling);
+    std::cout << "Created " << scanLines.size() << " scanlines\n";
     const double tolerance{sampling * 0.001};
     const auto numThreads{std::thread::hardware_concurrency()};
+
     std::cout << "Using " << numThreads << " threads" << std::endl;
+
     std::vector<IntCurvesFace_ShapeIntersector> tlsIntersectors(numThreads);
     for(auto& intersector : tlsIntersectors)
+    {
         intersector.Load(shape, tolerance);
+    }
+
     std::vector<std::vector<Point>> tlsResult(numThreads);
     std::vector<std::vector<gp_Lin>> tlsScanLines(numThreads);
     for(std::size_t i{0}; i < scanLines.size(); ++i)
+    {
         tlsScanLines[i % numThreads].emplace_back(scanLines[i]);
+    }
     std::vector<int> threadIDs(numThreads);
     std::iota(std::begin(threadIDs), std::end(threadIDs), 0);
     std::for_each(std::execution::par,
@@ -271,7 +289,7 @@ void write(const std::string& outFile,
     {
         for(const auto& sel : select)
         {
-            if(sel != "")
+            if(!sel.empty())
             {
                 if(sel[0] == '/')
                 {
@@ -280,7 +298,7 @@ void write(const std::string& outFile,
                                      std::end(namedSolids),
                                      [&](const auto& namesSolid) { return namesSolid.name == sel; })};
                     if(iter == std::end(namedSolids))
-                        throw std::logic_error{std::string{"Could not find solid with name '"} + sel + "'"};
+                        throw std::invalid_argument{std::string{"Could not find solid with name '"} + sel + "'"};
                     builder.Add(compound, iter->solid);
                 }
                 else
@@ -289,19 +307,21 @@ void write(const std::string& outFile,
                     {
                         int index{std::stoi(sel)};
                         if(index < 1 || index > namedSolids.size())
-                            throw std::logic_error{std::string{"Index out of range: "} + sel};
+                            throw std::invalid_argument{std::string{"Index out of range: "} + sel};
                         builder.Add(compound, namedSolids[index - 1].solid);
                     }
                     catch(const std::invalid_argument&)
                     {
-                        throw std::logic_error{std::string("Invalid index: ") + sel};
+                        throw std::invalid_argument{std::string("Invalid index: ") + sel};
                     }
                 }
             }
         }
     }
     std::vector<Point> points{makeUniquePoints(sampleShape(compound, sampling), sampling * 0.001)};
+    std::cout << "Created " << points.size() << " points\n";
     writeXYZ(outFile, points);
+    std::cout << "Saved point cloud in " << outFile << "\n";
 }
 
 int main(int argc, char* argv[])
@@ -337,7 +357,7 @@ int main(int argc, char* argv[])
         {
             const auto inFile{result["in"].as<std::string>()}, outFile{result["out"].as<std::string>()};
             if(!result.count("sampling"))
-                throw std::logic_error{std::string{"Missing option 'sampling'"}};
+                throw std::invalid_argument{std::string{"Missing option 'sampling'"}};
             const auto sampling{result["sampling"].as<double>()};
             std::vector<std::string> select;
             if(result.count("select"))
