@@ -46,9 +46,26 @@ else()
     message(STATUS "OpenCASCADE found: ${OpenCASCADE_VERSION}")
 endif()
 
+find_package(indicators QUIET)
+if(NOT indicators_FOUND)
+  message(STATUS "indicators not found - installing via CMake...")
+
+  include(FetchContent)
+  FetchContent_Declare(
+    indicators
+    GIT_REPOSITORY https://github.com/p-ranav/indicators.git
+    )
+    set(INDICATORS_INSTALL ON CACHE INTERNAL "")
+    set(INDICATORS_DEMO OFF CACHE INTERNAL "")
+    FetchContent_MakeAvailable(indicators)
+
+else()
+    message(STATUS "indicators found: ${indicators_VERSION}")
+endif()
+
 add_executable(STEPToPoints src/STEPToPoints.cpp)
 
-target_link_libraries(STEPToPoints ${OpenCASCADE_FoundationClasses_LIBRARIES} ${OpenCASCADE_ModelingData_LIBRARIES} ${OpenCASCADE_ModelingAlgorithms_LIBRARIES} ${OpenCASCADE_Visualization_LIBRARIES} ${OpenCASCADE_ApplicationFramework_LIBRARIES} ${OpenCASCADE_DataExchange_LIBRARIES} ${OpenCASCADE_Draw_LIBRARIES})
+target_link_libraries(STEPToPoints ${OpenCASCADE_FoundationClasses_LIBRARIES} ${OpenCASCADE_ModelingData_LIBRARIES} ${OpenCASCADE_ModelingAlgorithms_LIBRARIES} ${OpenCASCADE_Visualization_LIBRARIES} ${OpenCASCADE_ApplicationFramework_LIBRARIES} ${OpenCASCADE_DataExchange_LIBRARIES} ${OpenCASCADE_Draw_LIBRARIES} indicators::indicators) #
 
 # this is for std::execution::par
 if(APPLE)

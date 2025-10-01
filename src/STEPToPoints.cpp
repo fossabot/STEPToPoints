@@ -42,6 +42,8 @@
 #include <BRep_Tool.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 #include <GeomLProp_SLProps.hxx>
+#include <indicators/block_progress_bar.hpp>
+#include <indicators/cursor_control.hpp>
 #include <vector>
 #include <set>
 #include <array>
@@ -231,11 +233,12 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
 {
     std::vector<Point> result;
     std::vector<gp_Lin> scanLines = createScanLines(shape, sampling);
-    std::cout << "Created " << scanLines.size() << " scanlines\n";
+    const auto numScanLines{scanLines.size()};
+    std::cout << "Created " << numScanLines << " scanlines\n";
     const double tolerance{sampling * 0.001};
     const auto numThreads{std::thread::hardware_concurrency()};
 
-    std::cout << "Using " << numThreads << " threads" << std::endl;
+    std::cout << "Using " << numThreads << " threads\n";
 
     std::vector<IntCurvesFace_ShapeIntersector> tlsIntersectors(numThreads);
     for(auto& intersector : tlsIntersectors)
@@ -251,6 +254,23 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
     }
     std::vector<int> threadIDs(numThreads);
     std::iota(std::begin(threadIDs), std::end(threadIDs), 0);
+
+    namespace ind = indicators;
+    ind::show_console_cursor(false);
+
+    std::cout << "Sampling points on the surface\n";
+    ind::BlockProgressBar bar{
+        ind::option::BarWidth{100},
+        ind::option::Start{"["},
+        ind::option::End{"]"},
+        ind::option::ForegroundColor{ind::Color::white}  ,
+        ind::option::ShowPercentage{true},
+        ind::option::ShowElapsedTime{true},
+        ind::option::ShowRemainingTime{true},
+        ind::option::MaxProgress{numScanLines},
+        ind::option::FontStyles{std::vector{ind::FontStyle::bold}}
+    };
+    std::atomic processedScanLines = decltype(numScanLines){0};
     std::for_each(std::execution::par,
                   std::begin(threadIDs),
                   std::end(threadIDs),
@@ -270,8 +290,12 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
                               tlsResult[threadID].emplace_back(std::array<double, 3>{p.X(), p.Y(), p.Z()},
                                                                std::array<double, 3>{n.X(), n.Y(), n.Z()});
                           }
+                          ++processedScanLines;
+                          bar.tick();
+                          bar.set_option(ind::option::PostfixText{std::format("{} / {}", processedScanLines.load(), numScanLines)});
                       }
                   });
+    ind::show_console_cursor(true);
     for(const auto& r : tlsResult)
         std::copy(std::begin(r), std::end(r), std::back_inserter(result));
     return result;
@@ -324,7 +348,7 @@ void write(const std::string& outFile,
         }
     }
     std::vector<Point> points{makeUniquePoints(sampleShape(compound, sampling), sampling * 0.001)};
-    std::cout << "Created " << points.size() << " points\n";
+    std::cout << "\nCreated " << points.size() << " points\n";
     writeXYZ(outFile, points);
     std::cout << "Saved point cloud in " << outFile << "\n";
 }
