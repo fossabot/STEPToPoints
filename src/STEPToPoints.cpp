@@ -81,7 +81,8 @@ void getNamedSolids(const TopLoc_Location& location,
     }
     if(name.empty())
     {
-        name = std::to_string(id++);
+        name = std::to_string(id);
+        id++;
     }
     std::string fullName{prefix + "/" + name};
 
@@ -173,9 +174,13 @@ auto makeUniquePoints(const std::vector<Point>& points, const double epsilon)
     PointLessOperator lessOperator{epsilon};
     std::set<Point, decltype(lessOperator)> pointSet{lessOperator};
     for(const auto& p : points)
+    {
         pointSet.insert(p);
+    }
     for(const auto& key : pointSet)
+    {
         result.emplace_back(key);
+    }
     return result;
 }
 
@@ -339,8 +344,7 @@ int main(int argc, char* argv[])
             "Print usage");
     try
     {
-        const auto result{options.parse(argc, argv)};
-        if(result.count("content"))
+        if(const auto result{options.parse(argc, argv)}; result.count("content"))
         {
             if(result.count("in"))
             {
@@ -348,20 +352,27 @@ int main(int argc, char* argv[])
                 std::vector<NamedSolid> namedSolids;
                 read(inFile, namedSolids);
                 for(const auto& namedSolid : namedSolids)
+                {
                     std::cout << namedSolid.name << std::endl;
+                }
             }
             else
-                throw std::logic_error{std::string{"Missing option 'in'"}};
+                throw std::invalid_argument{std::string{"Missing option 'in'"}};
         }
         else if(result.count("in") && result.count("out"))
         {
-            const auto inFile{result["in"].as<std::string>()}, outFile{result["out"].as<std::string>()};
+            const auto inFile = result["in"].as<std::string>();
+            const auto outFile = result["out"].as<std::string>();
             if(!result.count("sampling"))
+            {
                 throw std::invalid_argument{std::string{"Missing option 'sampling'"}};
+            }
             const auto sampling{result["sampling"].as<double>()};
             std::vector<std::string> select;
             if(result.count("select"))
+            {
                 select = result["select"].as<std::vector<std::string>>();
+            }
             std::vector<NamedSolid> namedSolids;
             read(inFile, namedSolids);
             write(outFile, namedSolids, select, sampling);
