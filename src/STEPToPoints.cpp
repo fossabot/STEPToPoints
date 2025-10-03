@@ -44,15 +44,16 @@
 #include <GeomLProp_SLProps.hxx>
 #include <indicators/block_progress_bar.hpp>
 #include <indicators/cursor_control.hpp>
+#include "cxxopts.hpp"
 #include <vector>
 #include <set>
 #include <array>
 #include <numeric>
-#include <cmath>
+#include <format>
 #include <execution>
 #include <thread>
 #include <iostream>
-#include "cxxopts.hpp"
+
 
 struct NamedSolid
 {
@@ -158,7 +159,7 @@ struct PointLessOperator
 
     bool operator()(const Point& lhs, const Point& rhs) const
     {
-        for(auto i{0}; i < 3; ++i)
+        for(auto i{0u}; i < 3; ++i)
         {
             if(std::abs(lhs.vertex[i] - rhs.vertex[i]) > eps)
                 return lhs.vertex[i] < rhs.vertex[i];
@@ -179,6 +180,7 @@ auto makeUniquePoints(const std::vector<Point>& points, const double epsilon)
     {
         pointSet.insert(p);
     }
+    result.reserve(pointSet.size());
     for(const auto& key : pointSet)
     {
         result.emplace_back(key);
@@ -252,13 +254,20 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
     {
         tlsScanLines[i % numThreads].emplace_back(scanLines[i]);
     }
-    std::vector<int> threadIDs(numThreads);
+    std::vector<unsigned int> threadIDs(numThreads);
     std::iota(std::begin(threadIDs), std::end(threadIDs), 0);
+
+    // @TODO reserve the proper amount of memory for the results
+    for(auto& res : tlsResult)
+    {
+        res.reserve(10000);
+    }
 
     namespace ind = indicators;
     ind::show_console_cursor(false);
 
-    std::cout << "Sampling points on the surface\n";
+    const auto granularity{100u};
+    std::cout << "Sampling points on the surface...\n";
     ind::BlockProgressBar bar{
         ind::option::BarWidth{100},
         ind::option::Start{"["},
@@ -267,34 +276,42 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
         ind::option::ShowPercentage{true},
         ind::option::ShowElapsedTime{true},
         ind::option::ShowRemainingTime{true},
-        ind::option::MaxProgress{numScanLines},
+        ind::option::MaxProgress{numScanLines/granularity},
         ind::option::FontStyles{std::vector{ind::FontStyle::bold}}
     };
     std::atomic processedScanLines = decltype(numScanLines){0};
-    std::for_each(std::execution::par,
-                  std::begin(threadIDs),
-                  std::end(threadIDs),
-                  [&](int threadID) {
-                      for(const auto& scanLine : tlsScanLines[threadID])
-                      {
-                          auto& intersector{tlsIntersectors[threadID]};
-                          intersector.Perform(scanLine, -RealLast(), RealLast());
-                          if(!intersector.IsDone())
-                              continue;
-                          for(auto i{1}; i <= intersector.NbPnt(); ++i)
-                          {
-                              const gp_Pnt p{intersector.Pnt(i)};
-                              const TopoDS_Face f{intersector.Face(i)};
-                              const gp_Dir n{
-                                  surfaceNormal(f, intersector.UParameter(i), intersector.VParameter(i), tolerance)};
-                              tlsResult[threadID].emplace_back(std::array<double, 3>{p.X(), p.Y(), p.Z()},
-                                                               std::array<double, 3>{n.X(), n.Y(), n.Z()});
-                          }
-                          ++processedScanLines;
-                          bar.tick();
-                          bar.set_option(ind::option::PostfixText{std::format("{} / {}", processedScanLines.load(), numScanLines)});
-                      }
-                  });
+
+    #pragma omp parallel for num_threads(numThreads)
+    for(const auto threadID : threadIDs)
+    {
+
+        auto processed{0u};
+        for(const auto& scanLine : tlsScanLines[threadID])
+        {
+            auto& intersector{tlsIntersectors[threadID]};
+            intersector.Perform(scanLine, -RealLast(), RealLast());
+            if(!intersector.IsDone())
+                continue;
+            for(auto i{1}; i <= intersector.NbPnt(); ++i)
+            {
+                const gp_Pnt p{intersector.Pnt(i)};
+                const TopoDS_Face f{intersector.Face(i)};
+                const gp_Dir n{
+                    surfaceNormal(f, intersector.UParameter(i), intersector.VParameter(i), tolerance)};
+                tlsResult[threadID].emplace_back(std::array<double, 3>{p.X(), p.Y(), p.Z()},
+                                                 std::array<double, 3>{n.X(), n.Y(), n.Z()});
+            }
+            ++processed;
+            if(processed % granularity == 0)
+            {
+                processedScanLines+=granularity;
+                bar.tick();
+                bar.set_option(ind::option::PostfixText{std::format("{} / {}", processedScanLines.load(), numScanLines)});
+            }
+        }
+    }
+
+    bar.mark_as_completed();
     ind::show_console_cursor(true);
     for(const auto& r : tlsResult)
         std::copy(std::begin(r), std::end(r), std::back_inserter(result));
@@ -334,9 +351,11 @@ void write(const std::string& outFile,
                 {
                     try
                     {
-                        int index{std::stoi(sel)};
+                        const auto index = std::stoul(sel);
                         if(index < 1 || index > namedSolids.size())
+                        {
                             throw std::invalid_argument{std::string{"Index out of range: "} + sel};
+                        }
                         builder.Add(compound, namedSolids[index - 1].solid);
                     }
                     catch(const std::invalid_argument&)
@@ -347,7 +366,7 @@ void write(const std::string& outFile,
             }
         }
     }
-    std::vector<Point> points{makeUniquePoints(sampleShape(compound, sampling), sampling * 0.001)};
+    const auto points = makeUniquePoints(sampleShape(compound, sampling), sampling * 0.001);
     std::cout << "\nCreated " << points.size() << " points\n";
     writeXYZ(outFile, points);
     std::cout << "Saved point cloud in " << outFile << "\n";
@@ -357,15 +376,17 @@ int main(int argc, char* argv[])
 {
     cxxopts::Options options{"STEPToPoints", "STEP to point cloud conversion by regular sampling"};
     options.
-        add_options()("i,in", "Input file", cxxopts::value<std::string>())(
-            "o,out",
-            "Output file",
-            cxxopts::value<std::string>())("c,content", "List content (solids)")(
-            "s,select",
-            "Select solids by name or index (comma seperated list, index starts with 1)",
-            cxxopts::value<std::vector<std::string>>())("g,sampling", "Sampling distance", cxxopts::value<double>())(
-            "h,help",
-            "Print usage");
+        add_options()
+    ("i,in", "Input file", cxxopts::value<std::string>())
+    ("o,out",
+    "Output file",
+    cxxopts::value<std::string>())
+    ("c,content", "List content (solids)")
+    ("s,select",
+    "Select solids by name or index (comma seperated list, index starts with 1)",
+    cxxopts::value<std::vector<std::string>>())
+    ("g,sampling", "Sampling distance", cxxopts::value<double>())
+    ("h,help", "Print usage");
     try
     {
         if(const auto result{options.parse(argc, argv)}; result.count("content"))
