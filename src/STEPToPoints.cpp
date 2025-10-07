@@ -430,53 +430,49 @@ int main(int argc, char* argv[])
     cxxopts::value<std::vector<std::string>>())
     ("g,sampling", "Sampling distance", cxxopts::value<double>())
     ("h,help", "Print usage");
-    try
+
+    if(const auto result{options.parse(argc, argv)}; result.count("help"))
     {
-        if(const auto result{options.parse(argc, argv)}; result.count("content"))
-        {
-            if(result.count("in"))
-            {
-                const std::string inFile{result["in"].as<std::string>()};
-                std::vector<NamedSolid> namedSolids;
-                read(inFile, namedSolids);
-                for(const auto& namedSolid : namedSolids)
-                {
-                    std::cout << namedSolid.name << std::endl;
-                }
-            }
-            else
-                throw std::invalid_argument{std::string{"Missing option 'in'"}};
-        }
-        else if(result.count("in") && result.count("out"))
-        {
-            const auto inFile = result["in"].as<std::string>();
-            const auto outFile = result["out"].as<std::string>();
-            if(!result.count("sampling"))
-            {
-                throw std::invalid_argument{std::string{"Missing option 'sampling'"}};
-            }
-            const auto sampling{result["sampling"].as<double>()};
-            std::vector<std::string> select;
-            if(result.count("select"))
-            {
-                select = result["select"].as<std::vector<std::string>>();
-            }
-            std::vector<NamedSolid> namedSolids;
-            read(inFile, namedSolids);
-            write(outFile, namedSolids, select, sampling);
-        }
-        else
-            std::cout << options.help() << std::endl;
-        return EXIT_SUCCESS;
+        std::cout << options.help() << std::endl;
     }
-    catch(const std::exception& ex)
+    else if(result.count("content"))
     {
-        std::cerr << ex.what();
+        if(!result.count("in"))
+        {
+            throw std::invalid_argument{std::string{"Missing option 'in'"}};
+        }
+
+        const std::string inFile{result["in"].as<std::string>()};
+        std::vector<NamedSolid> namedSolids;
+        read(inFile, namedSolids);
+        for(auto i = 0u; i < namedSolids.size(); ++i)
+        {
+            std::cout << (i + 1) << "\t" << namedSolids[i].name << std::endl;
+        }
+
+    }
+    else if(result.count("in") && result.count("out"))
+    {
+        const auto inFile = result["in"].as<std::string>();
+        const auto outFile = result["out"].as<std::string>();
+        if(!result.count("sampling"))
+        {
+            throw std::invalid_argument{std::string{"Missing option 'sampling'"}};
+        }
+        const auto sampling{result["sampling"].as<double>()};
+        std::vector<std::string> select;
+        if(result.count("select"))
+        {
+            select = result["select"].as<std::vector<std::string>>();
+        }
+        std::vector<NamedSolid> namedSolids;
+        read(inFile, namedSolids);
+        write(outFile, namedSolids, select, sampling);
+    }
+    else
+    {
+        std::cout << options.help() << std::endl;
         return EXIT_FAILURE;
     }
-    catch(...)
-    {
-        std::cerr << "Unexpected exception";
-        return EXIT_FAILURE;
-    }
+    return EXIT_SUCCESS;
 }
