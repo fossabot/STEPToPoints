@@ -13,6 +13,8 @@ cd vcpkg
 # this set where vcpkg is located
 export VCPKG_ROOT=$(pwd)
 
+# go back to the step2points dir
+cd ..
 # clone this repository
 git clone --branch dev/modernize https://github.com/simogasp/STEPToPoints.git
 cd STEPToPoints
