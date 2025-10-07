@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "steptopoints",
+  "description": "A tool to convert STEP files to point cloud files.",
+  "license": "LGPL-2.1-only",
+  "dependencies": [
+    {
+      "name": "opencascade",
+      "default-features": false,
+      "features": [ "tbb" ]
+    },
+    "indicators"
+  ]
+}
