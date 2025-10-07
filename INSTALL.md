@@ -14,7 +14,7 @@ cd vcpkg
 export VCPKG_ROOT=$(pwd)
 
 # clone this repository
-git clone https://github.com/simogasp/STEPToPoints.git
+git clone --branch dev/modernize https://github.com/simogasp/STEPToPoints.git
 cd STEPToPoints
 # create a build directory
 mkdir build
