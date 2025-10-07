@@ -53,6 +53,7 @@
 #include <execution>
 #include <thread>
 #include <iostream>
+#include <filesystem>
 
 
 struct NamedSolid
@@ -152,6 +153,45 @@ void writeXYZ(const std::string& outFile, const std::vector<Point>& points)
     ofs.close();
 }
 
+void writeOBJ(const std::string& outFile, const std::vector<Point>& points)
+{
+    std::ofstream ofs{outFile};
+    if(!ofs.is_open())
+    {
+        throw std::invalid_argument{std::format("Could not open {}", outFile)};
+    }
+    // write the points in wavefront obj format
+    for(const auto& p : points)
+    {
+        ofs << "v " << p.vertex[0] << " " << p.vertex[1] << " " << p.vertex[2] << "\nvn " << p.normal[0] << " " << p.normal[1] <<
+            " " << p.normal[2] << "\n";
+    }
+    ofs.close();
+}
+
+
+void savePointCloud(const std::string& outFile, const std::vector<Point>& points)
+{
+    namespace fs = std::filesystem;
+    const auto ext = fs::path(outFile).extension();
+    if(ext.empty())
+    {
+        throw std::invalid_argument{"Output file has no extension: " + outFile};
+    }
+    if(ext == ".xyz")
+    {
+        writeXYZ(outFile, points);
+    }
+    else if(ext == ".obj")
+    {
+        writeOBJ(outFile, points);
+    }
+    else
+    {
+        throw std::invalid_argument{"Unknown file extension: " + ext.string()};
+    }
+}
+
 struct PointLessOperator
 {
     explicit PointLessOperator(const double e)
@@ -196,6 +236,8 @@ auto createScanLines(const TopoDS_Shape& shape, const double sampling) -> std::v
     Bnd_Box box;
     BRepBndLib::Add(shape, box);
     box.Get(min[0], min[1], min[2], max[0], max[1], max[2]);
+    std::cout << "Bounding box size: x = " << max[0] - min[0] << ", y = " << max[1] - min[1] << ", z = " << max[2] - min[2]
+              << "\n";
     for(auto dim{0u}; dim < 3u; ++dim)
     {
         const double uMin{min[(dim + 1) % 3]};
@@ -266,6 +308,7 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
     namespace ind = indicators;
     ind::show_console_cursor(false);
 
+    // @TODO determine a proper granularity
     const auto granularity{100u};
     std::cout << "Sampling points on the surface...\n";
     ind::BlockProgressBar bar{
@@ -368,7 +411,7 @@ void write(const std::string& outFile,
     }
     const auto points = makeUniquePoints(sampleShape(compound, sampling), sampling * 0.001);
     std::cout << "\nCreated " << points.size() << " points\n";
-    writeXYZ(outFile, points);
+    savePointCloud(outFile, points);
     std::cout << "Saved point cloud in " << outFile << "\n";
 }
 
