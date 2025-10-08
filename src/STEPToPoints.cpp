@@ -111,8 +111,9 @@ void getNamedSolids(const TopLoc_Location& location,
     }
 }
 
-void read(const std::string& inFile, std::vector<NamedSolid>& namedSolids)
+[[nodiscard]] auto readSolids(const std::string& inFile) -> std::vector<NamedSolid>
 {
+    std::vector<NamedSolid> namedSolids{};
     Handle(TDocStd_Document) document;
     Handle(XCAFApp_Application) application = XCAFApp_Application::GetApplication();
     std::cout << "Reading " << inFile << "\n";
@@ -121,16 +122,19 @@ void read(const std::string& inFile, std::vector<NamedSolid>& namedSolids)
     reader.SetNameMode(true);
     if(const auto stat{reader.ReadFile(inFile.c_str())}; stat != IFSelect_RetDone || !reader.Transfer(document))
     {
-        throw std::invalid_argument{std::format("Could not read {}", inFile)};
+        throw std::invalid_argument{"Could not read " + inFile};
     }
     Handle(XCAFDoc_ShapeTool) shapeTool{XCAFDoc_DocumentTool::ShapeTool(document->Main())};
     TDF_LabelSequence topLevelShapes;
     shapeTool->GetFreeShapes(topLevelShapes);
+    const auto numLevels = topLevelShapes.Length();
+    namedSolids.reserve(static_cast<std::size_t>(topLevelShapes.Length()));
     unsigned int id{1};
-    for(Standard_Integer iLabel{1}; iLabel <= topLevelShapes.Length(); ++iLabel)
+    for(Standard_Integer iLabel{1}; iLabel <= numLevels; ++iLabel)
     {
         getNamedSolids(TopLoc_Location{}, "", id, shapeTool, topLevelShapes.Value(iLabel), namedSolids);
     }
+    return namedSolids;
 }
 
 struct Point
@@ -438,9 +442,8 @@ int main(int argc, char* argv[])
     else if(result.count("content") && result.count("in"))
     {
         const std::string inFile{result["in"].as<std::string>()};
-        std::vector<NamedSolid> namedSolids;
-        read(inFile, namedSolids);
-        for(auto i = 0u; i < namedSolids.size(); ++i)
+        const std::vector<NamedSolid> namedSolids = readSolids(inFile);
+        for(auto i{0u}; i < namedSolids.size(); ++i)
         {
             std::cout << (i + 1) << "\t" << namedSolids[i].name << std::endl;
         }
@@ -456,8 +459,7 @@ int main(int argc, char* argv[])
         {
             select = result["select"].as<std::vector<std::string>>();
         }
-        std::vector<NamedSolid> namedSolids;
-        read(inFile, namedSolids);
+        const std::vector<NamedSolid> namedSolids = readSolids(inFile);
         write(outFile, namedSolids, select, sampling);
     }
     else
