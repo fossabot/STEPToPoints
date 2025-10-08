@@ -435,13 +435,8 @@ int main(int argc, char* argv[])
     {
         std::cout << options.help() << std::endl;
     }
-    else if(result.count("content"))
+    else if(result.count("content") && result.count("in"))
     {
-        if(!result.count("in"))
-        {
-            throw std::invalid_argument{std::string{"Missing option 'in'"}};
-        }
-
         const std::string inFile{result["in"].as<std::string>()};
         std::vector<NamedSolid> namedSolids;
         read(inFile, namedSolids);
@@ -451,15 +446,11 @@ int main(int argc, char* argv[])
         }
 
     }
-    else if(result.count("in") && result.count("out"))
+    else if(result.count("in") && result.count("out") && result.count("sampling"))
     {
         const auto inFile = result["in"].as<std::string>();
         const auto outFile = result["out"].as<std::string>();
-        if(!result.count("sampling"))
-        {
-            throw std::invalid_argument{std::string{"Missing option 'sampling'"}};
-        }
-        const auto sampling{result["sampling"].as<double>()};
+        const auto sampling = result["sampling"].as<double>();
         std::vector<std::string> select;
         if(result.count("select"))
         {
