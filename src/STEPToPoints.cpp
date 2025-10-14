@@ -343,9 +343,9 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
 
     // ugly cast because Windoze requires a signed integer for the loop variable
     #pragma omp parallel for num_threads(numThreads)
-    for(int i = 0; i < static_cast<int>(threadIDs.size()); ++i)
+    for(int t_idx = 0; t_idx < static_cast<int>(threadIDs.size()); ++t_idx)
     {
-        const auto threadID = threadIDs[static_cast<std::size_t>(i)];
+        const auto threadID = threadIDs[static_cast<std::size_t>(t_idx)];
         auto processed{0u};
         for(const auto& scanLine : tlsScanLines[threadID])
         {
