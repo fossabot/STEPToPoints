@@ -32,14 +32,7 @@ jobs:
       uses: lukka/run-vcpkg@v11
       with:
         # v2025.09.17
-        vcpkgGitCommitId: '4334d8b4c8916018600212ab4dd4bbdc343065d1'  
-
-    - name: Export GitHub Actions cache environment variables for vcpkg
-      uses: actions/github-script@v7
-      with:
-        script: |
-          core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
-          core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+        vcpkgGitCommitId: '4334d8b4c8916018600212ab4dd4bbdc343065d1'
 
     - name: Build (Release)
       uses: lukka/run-cmake@v10
