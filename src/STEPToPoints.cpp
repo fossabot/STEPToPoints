@@ -45,6 +45,7 @@
 #include <indicators/block_progress_bar.hpp>
 #include <indicators/cursor_control.hpp>
 #include "cxxopts.hpp"
+#include <algorithm>
 #include <vector>
 #include <set>
 #include <array>
@@ -375,7 +376,9 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
     bar.mark_as_completed();
     ind::show_console_cursor(true);
     for(const auto& r : tlsResult)
-        std::copy(std::begin(r), std::end(r), std::back_inserter(result));
+    {
+        std::ranges::copy(r, std::back_inserter(result));
+    }
     return result;
 }
 
