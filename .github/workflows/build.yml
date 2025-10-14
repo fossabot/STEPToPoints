@@ -52,23 +52,3 @@ jobs:
       with:
         configurePreset: 'debug-preset'
         buildPreset: 'debug-preset'
-
-    - name: Upload artifacts (Release)
-      uses: actions/upload-artifact@v4
-      with:
-        name: STEPToPoints-${{ matrix.os }}-Release
-        path: |
-          build/release/STEPToPoints
-          build/release/STEPToPoints.exe
-          build/release/Release/STEPToPoints.exe
-        if-no-files-found: ignore
-
-    - name: Upload artifacts (Debug)
-      uses: actions/upload-artifact@v4
-      with:
-        name: STEPToPoints-${{ matrix.os }}-Debug
-        path: |
-          build/debug/STEPToPoints
-          build/debug/STEPToPoints.exe
-          build/debug/Debug/STEPToPoints.exe
-        if-no-files-found: ignore
