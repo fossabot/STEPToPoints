@@ -372,7 +372,6 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
         }
     }
 
-    bar.set_progress(max_progress);
     bar.mark_as_completed();
     ind::show_console_cursor(true);
     for(const auto& r : tlsResult)
