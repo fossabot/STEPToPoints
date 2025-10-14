@@ -341,10 +341,11 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
     };
     std::atomic processedScanLines = decltype(numScanLines){0};
 
+    // ugly cast because Windoze requires a signed integer for the loop variable
     #pragma omp parallel for num_threads(numThreads)
-    for(const auto threadID : threadIDs)
+    for(int i = 0; i < static_cast<int>(threadIDs.size()); ++i)
     {
-
+        const auto threadID = threadIDs[static_cast<std::size_t>(i)];
         auto processed{0u};
         for(const auto& scanLine : tlsScanLines[threadID])
         {

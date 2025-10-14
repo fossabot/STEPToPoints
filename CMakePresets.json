@@ -1,0 +1,53 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 23,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": {
+          "type": "FILEPATH",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        }
+      }
+    },
+    {
+      "name": "release-preset",
+      "inherits": "default",
+      "displayName": "Release Build",
+      "description": "Release build configuration",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "debug-preset",
+      "inherits": "default",
+      "displayName": "Debug Build",
+      "description": "Debug build configuration",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "release-preset",
+      "configurePreset": "release-preset",
+      "displayName": "Release Build",
+      "description": "Build in Release mode"
+    },
+    {
+      "name": "debug-preset",
+      "configurePreset": "debug-preset",
+      "displayName": "Debug Build",
+      "description": "Build in Debug mode"
+    }
+  ]
+}
