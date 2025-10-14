@@ -45,6 +45,7 @@
 #include <indicators/block_progress_bar.hpp>
 #include <indicators/cursor_control.hpp>
 #include "cxxopts.hpp"
+#include "Timer.hpp"
 #include <algorithm>
 #include <vector>
 #include <set>
@@ -330,7 +331,7 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
     const auto max_progress = numScanLines / granularity;
     std::cout << "Sampling points on the surface...\n";
     ind::BlockProgressBar bar{
-        ind::option::BarWidth{100},
+        ind::option::BarWidth{100u},
         ind::option::Start{"["},
         ind::option::End{"]"},
         ind::option::ForegroundColor{ind::Color::white}  ,
@@ -341,6 +342,8 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
         ind::option::FontStyles{std::vector{ind::FontStyle::bold}}
     };
     std::atomic processedScanLines = decltype(numScanLines){0};
+    Timer timer{};
+    timer.start();
 
     // ugly cast because Windoze requires a signed integer for the loop variable
     #pragma omp parallel for num_threads(numThreads)
@@ -373,8 +376,10 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
         }
     }
 
+    timer.stop();
     bar.mark_as_completed();
     ind::show_console_cursor(true);
+    std::cout << "Sampling took " << timer.elapsed_seconds() << " seconds\n";
     for(const auto& r : tlsResult)
     {
         std::ranges::copy(r, std::back_inserter(result));
@@ -516,8 +521,11 @@ void write(const std::string& outFile,
     const auto points = makeUniquePoints(sampleShape(compound, sampling), sampling * 0.001);
 
     std::cout << "\nCreated " << points.size() << " points\n";
+    Timer timer{};
+    timer.start();
     savePointCloud(outFile, points);
-    std::cout << "Saved point cloud in " << outFile << "\n";
+    timer.stop();
+    std::cout << "Saved point cloud in " << outFile << " in " << timer.elapsed_seconds() << " seconds\n";
 }
 
 int main(int argc, char* argv[])
