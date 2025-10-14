@@ -1,5 +1,7 @@
 # STEPToPoints
 
+[![CI-Build](https://github.com/simogasp/STEPToPoints/actions/workflows/build.yml/badge.svg)](https://github.com/simogasp/STEPToPoints/actions/workflows/build.yml)
+
 ## Description
 The program STEPToPoints is a command line utility to generate point clouds out of solids contained in STEP files.
 The supported output file format is xyz (vertex positions and normal vectors).
