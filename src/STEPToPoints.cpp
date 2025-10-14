@@ -54,6 +54,8 @@
 #include <thread>
 #include <iostream>
 #include <filesystem>
+#include <optional>
+#include <ranges>
 
 
 struct NamedSolid
@@ -146,6 +148,16 @@ struct Point
     std::array<double, 3> normal;
 };
 
+/**
+ * @brief Writes a point cloud to a `.xyz` file.
+ *
+ * This function takes a vector of 3D points with normals and writes them
+ * to a file in the `.xyz` format. Each line in the file contains the
+ * coordinates of a point followed by its normal vector components.
+ *
+ * @param[in] outFile The path to the output `.xyz` file.
+ * @param[in] points A vector of `Point` objects representing the point cloud.
+ */
 void writeXYZ(const std::string& outFile, const std::vector<Point>& points)
 {
     std::ofstream ofs{outFile};
@@ -314,6 +326,7 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
 
     // @TODO determine a proper granularity
     const auto granularity{100u};
+    const auto max_progress = numScanLines / granularity;
     std::cout << "Sampling points on the surface...\n";
     ind::BlockProgressBar bar{
         ind::option::BarWidth{100},
@@ -323,7 +336,7 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
         ind::option::ShowPercentage{true},
         ind::option::ShowElapsedTime{true},
         ind::option::ShowRemainingTime{true},
-        ind::option::MaxProgress{numScanLines/granularity},
+        ind::option::MaxProgress{max_progress},
         ind::option::FontStyles{std::vector{ind::FontStyle::bold}}
     };
     std::atomic processedScanLines = decltype(numScanLines){0};
@@ -358,6 +371,7 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
         }
     }
 
+    bar.set_progress(max_progress);
     bar.mark_as_completed();
     ind::show_console_cursor(true);
     for(const auto& r : tlsResult)
@@ -365,55 +379,139 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
     return result;
 }
 
+/**
+ * @brief Attempts to parse a string as a solid index (1-based).
+ *
+ * @param sel The string to parse.
+ * @param maxIndex The maximum valid index (size of the namedSolids vector).
+ * @return std::optional<size_t> The zero-based index if valid, std::nullopt otherwise.
+ */
+auto parseSolidIndex(const std::string& sel, std::size_t maxIndex) -> std::optional<std::size_t>
+{
+    try
+    {
+        if(const auto index = std::stoul(sel);
+            index >= 1 && index <= maxIndex)
+        {
+            return index - 1; // Convert to zero-based
+        }
+    }
+    catch(const std::invalid_argument&)
+    {
+        std::cerr << "Invalid index provided: " << sel << "\n";
+    }
+    catch(const std::out_of_range&)
+    {
+        std::cerr << "Index out of range: " << sel << "\n";
+    }
+    return std::nullopt;
+}
+
+/**
+ * @brief Finds a solid by its full name path.
+ *
+ * @param namedSolids The vector of named solids to search.
+ * @param name The full path name to search for (must start with '/').
+ * @return std::optional<std::reference_wrapper<const NamedSolid>> Reference to the found solid or std::nullopt.
+ */
+auto findSolidByName(const std::vector<NamedSolid>& namedSolids, const std::string& name)
+    -> std::optional<std::reference_wrapper<const NamedSolid>>
+{
+    const auto it = std::ranges::find_if(namedSolids, [&name](const auto& ns) {
+        return ns.name == name;
+    });
+
+    if(it != namedSolids.end())
+    {
+        return std::cref(*it);
+    }
+    return std::nullopt;
+}
+
+/**
+ * @brief Resolves a selection string to a solid.
+ *
+ * @param sel The selection string (either a name starting with '/' or a 1-based index).
+ * @param namedSolids The vector of all available named solids.
+ * @return const NamedSolid& Reference to the selected solid.
+ * @throws std::invalid_argument If the selection cannot be resolved.
+ */
+auto resolveSolidSelection(const std::string& sel, const std::vector<NamedSolid>& namedSolids)
+    -> const NamedSolid&
+{
+    if(sel.empty())
+    {
+        throw std::invalid_argument{"Empty selection string"};
+    }
+
+    // Check if it's a name (starts with '/')
+    if(sel[0] == '/')
+    {
+        if(const auto found = findSolidByName(namedSolids, sel))
+        {
+            return found->get();
+        }
+        throw std::invalid_argument{std::format("Could not find solid with name '{}'", sel)};
+    }
+
+    // Try to parse as index
+    if(const auto index = parseSolidIndex(sel, namedSolids.size()); index.has_value())
+    {
+        return namedSolids[index.value()];
+    }
+
+    throw std::invalid_argument{std::format("Invalid selection: '{}' (not a valid name or index)", sel)};
+}
+
+/**
+ * @brief Builds a compound shape from selected solids.
+ *
+ * @param namedSolids The vector of all available named solids.
+ * @param selections The list of selection strings (names or indices). If empty, all solids are included.
+ * @return TopoDS_Compound A compound shape containing the selected solids.
+ * @throws std::invalid_argument If any selection is invalid.
+ */
+auto buildCompoundFromSelections(const std::vector<NamedSolid>& namedSolids,
+                                  const std::vector<std::string>& selections) -> TopoDS_Compound
+{
+    TopoDS_Compound compound;
+    TopoDS_Builder builder;
+    builder.MakeCompound(compound);
+
+    if(selections.empty())
+    {
+        std::cout << "No selections provided, adding all solids.\n";
+        // Add all solids
+        for(const auto& namedSolid : namedSolids)
+        {
+            builder.Add(compound, namedSolid.solid);
+        }
+    }
+    else
+    {
+        // Add only selected solids
+        for(const auto& sel : selections)
+        {
+            if(!sel.empty())
+            {
+                const auto& selectedSolid = resolveSolidSelection(sel, namedSolids);
+                std::cout << "Adding solid: " << selectedSolid.name << "\n";
+                builder.Add(compound, selectedSolid.solid);
+            }
+        }
+    }
+
+    return compound;
+}
+
 void write(const std::string& outFile,
            const std::vector<NamedSolid>& namedSolids,
            const std::vector<std::string>& select,
            const double sampling)
 {
-    TopoDS_Compound compound;
-    TopoDS_Builder builder;
-    builder.MakeCompound(compound);
-    if(select.empty())
-    {
-        for(const auto& namedSolid : namedSolids)
-            builder.Add(compound, namedSolid.solid);
-    }
-    else
-    {
-        for(const auto& sel : select)
-        {
-            if(!sel.empty())
-            {
-                if(sel[0] == '/')
-                {
-                    const auto iter{
-                        std::find_if(std::begin(namedSolids),
-                                     std::end(namedSolids),
-                                     [&](const auto& namesSolid) { return namesSolid.name == sel; })};
-                    if(iter == std::end(namedSolids))
-                        throw std::invalid_argument{std::string{"Could not find solid with name '"} + sel + "'"};
-                    builder.Add(compound, iter->solid);
-                }
-                else
-                {
-                    try
-                    {
-                        const auto index = std::stoul(sel);
-                        if(index < 1 || index > namedSolids.size())
-                        {
-                            throw std::invalid_argument{std::string{"Index out of range: "} + sel};
-                        }
-                        builder.Add(compound, namedSolids[index - 1].solid);
-                    }
-                    catch(const std::invalid_argument&)
-                    {
-                        throw std::invalid_argument{std::string("Invalid index: ") + sel};
-                    }
-                }
-            }
-        }
-    }
+    const auto compound = buildCompoundFromSelections(namedSolids, select);
     const auto points = makeUniquePoints(sampleShape(compound, sampling), sampling * 0.001);
+
     std::cout << "\nCreated " << points.size() << " points\n";
     savePointCloud(outFile, points);
     std::cout << "Saved point cloud in " << outFile << "\n";
