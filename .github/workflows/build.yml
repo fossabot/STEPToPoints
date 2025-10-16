@@ -4,6 +4,8 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * 1"
 
 env:
   VCPKG_BINARY_SOURCES: 'clear;x-gha,readwrite'
