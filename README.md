@@ -1,6 +1,7 @@
 # STEPToPoints
 
 [![CI-Build](https://github.com/simogasp/STEPToPoints/actions/workflows/build.yml/badge.svg)](https://github.com/simogasp/STEPToPoints/actions/workflows/build.yml)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fsimogasp%2FSTEPToPoints.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fsimogasp%2FSTEPToPoints?ref=badge_shield)
 
 ## Description
 The program STEPToPoints is a command line utility to generate point clouds out of solids contained in STEP files.
@@ -75,3 +76,6 @@ Examples are from the `examples` directory.
 
 ## Remarks
 This code has been tested with an OpenCASCADE 7.5.0 prebuilt binary (`opencascade-7.5.0-vc14-64.exe`) on Windows, as well as OpenCASCADE system packages on openSUSE Linux. With changes in the configuration section in the `CMakeLists.txt` file the build should also work with other OpenCASCADE versions.
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fsimogasp%2FSTEPToPoints.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fsimogasp%2FSTEPToPoints?ref=badge_large)
