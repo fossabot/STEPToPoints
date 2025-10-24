@@ -46,13 +46,16 @@ Usage:
   STEPToPoints [OPTION...]
 
   -i, --in arg        Input file
-  -o, --out arg       Output file
+  -o, --out arg       Output file (.obj, .ply, .xyz)
   -c, --content       List content (solids)
   -s, --select arg    Select solids by name or index (comma seperated list,
                       index starts with 1)
   -g, --sampling arg  Sampling distance
   -h, --help          Print usage
 ```
+
+> [!NOTE]
+> As output file, xyz, obj, and ply files are supported.
 
 ## Examples
 

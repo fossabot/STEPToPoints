@@ -46,6 +46,7 @@
 #include <indicators/cursor_control.hpp>
 #include "cxxopts.hpp"
 #include "Timer.hpp"
+#include "happly.hpp"
 #include <algorithm>
 #include <vector>
 #include <set>
@@ -187,6 +188,41 @@ void writeOBJ(const std::string& outFile, const std::vector<Point>& points)
     ofs.close();
 }
 
+void addProperty(happly::PLYData& plyOut,
+                 const std::vector<Point>& points,
+                 const std::string& vertexName,
+                 const std::string& propertyName,
+                 const std::function<double(const Point&)>& extractor)
+{
+    std::vector<double> values;
+    values.reserve(points.size());
+    std::ranges::transform(points, std::back_inserter(values), extractor);
+    plyOut.getElement(vertexName).addProperty<double>(propertyName, values);
+}
+
+void writePLY(const std::string& outFile, const std::vector<Point>& points)
+{
+    const std::string vertexName{"vertex"};
+    const auto numPoints{points.size()};
+    // Create a PlyData object
+    happly::PLYData plyOut;
+
+    plyOut.addElement(vertexName, numPoints);
+
+    // Add vertex coordinates
+    addProperty(plyOut, points, vertexName, "x", [](const Point& p) { return p.vertex[0]; });
+    addProperty(plyOut, points, vertexName, "y", [](const Point& p) { return p.vertex[1]; });
+    addProperty(plyOut, points, vertexName, "z", [](const Point& p) { return p.vertex[2]; });
+
+    // Add normals
+    addProperty(plyOut, points, vertexName, "nx", [](const Point& p) { return p.normal[0]; });
+    addProperty(plyOut, points, vertexName, "ny", [](const Point& p) { return p.normal[1]; });
+    addProperty(plyOut, points, vertexName, "nz", [](const Point& p) { return p.normal[2]; });
+
+    // Write to file
+    plyOut.write(outFile, happly::DataFormat::ASCII);
+}
+
 
 void savePointCloud(const std::string& outFile, const std::vector<Point>& points)
 {
@@ -203,6 +239,10 @@ void savePointCloud(const std::string& outFile, const std::vector<Point>& points
     else if(ext == ".obj")
     {
         writeOBJ(outFile, points);
+    }
+    else if(ext == ".ply")
+    {
+        writePLY(outFile, points);
     }
     else
     {
@@ -535,7 +575,7 @@ int main(int argc, char* argv[])
         add_options()
     ("i,in", "Input file", cxxopts::value<std::string>())
     ("o,out",
-    "Output file",
+    "Output file (Supported formats: .xyz, .ply, .obj)",
     cxxopts::value<std::string>())
     ("c,content", "List content (solids)")
     ("s,select",
