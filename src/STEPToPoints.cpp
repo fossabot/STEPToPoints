@@ -200,7 +200,7 @@ void addProperty(happly::PLYData& plyOut,
     plyOut.getElement(vertexName).addProperty<double>(propertyName, values);
 }
 
-void writePLY(const std::string& outFile, const std::vector<Point>& points)
+void writePLY(const std::string& outFile, const std::vector<Point>& points, bool binary)
 {
     const std::string vertexName{"vertex"};
     const auto numPoints{points.size()};
@@ -220,11 +220,12 @@ void writePLY(const std::string& outFile, const std::vector<Point>& points)
     addProperty(plyOut, points, vertexName, "nz", [](const Point& p) { return p.normal[2]; });
 
     // Write to file
-    plyOut.write(outFile, happly::DataFormat::ASCII);
+    const auto format = binary ? happly::DataFormat::Binary : happly::DataFormat::ASCII;
+    plyOut.write(outFile, format);
 }
 
 
-void savePointCloud(const std::string& outFile, const std::vector<Point>& points)
+void savePointCloud(const std::string& outFile, const std::vector<Point>& points, bool binary)
 {
     namespace fs = std::filesystem;
     const auto ext = fs::path(outFile).extension();
@@ -234,15 +235,21 @@ void savePointCloud(const std::string& outFile, const std::vector<Point>& points
     }
     if(ext == ".xyz")
     {
+        const std::string opt_message{binary ? " (binary option ignored for .xyz files)" : ""};
+        std::cout << "Writing XYZ file: " << outFile << opt_message<< "\n";
         writeXYZ(outFile, points);
     }
     else if(ext == ".obj")
     {
+        const std::string opt_message{binary ? " (binary option ignored for .obj files)" : ""};
+        std::cout << "Writing OBJ file: " << outFile << opt_message<< "\n";
         writeOBJ(outFile, points);
     }
     else if(ext == ".ply")
     {
-        writePLY(outFile, points);
+        const std::string opt_message{binary ? " with binary option" : ""};
+        std::cout << "Writing PLY file: " << outFile << opt_message<< "\n";
+        writePLY(outFile, points, binary);
     }
     else
     {
@@ -555,7 +562,8 @@ auto buildCompoundFromSelections(const std::vector<NamedSolid>& namedSolids,
 void write(const std::string& outFile,
            const std::vector<NamedSolid>& namedSolids,
            const std::vector<std::string>& select,
-           const double sampling)
+           double sampling,
+           bool binary)
 {
     const auto compound = buildCompoundFromSelections(namedSolids, select);
     const auto points = makeUniquePoints(sampleShape(compound, sampling), sampling * 0.001);
@@ -563,7 +571,7 @@ void write(const std::string& outFile,
     std::cout << "\nCreated " << points.size() << " points\n";
     Timer timer{};
     timer.start();
-    savePointCloud(outFile, points);
+    savePointCloud(outFile, points, binary);
     timer.stop();
     std::cout << "Saved point cloud in " << outFile << " in " << timer.elapsed_seconds() << " seconds\n";
 }
@@ -582,6 +590,7 @@ int main(int argc, char* argv[])
     "Select solids by name or index (comma seperated list, index starts with 1)",
     cxxopts::value<std::vector<std::string>>())
     ("g,sampling", "Sampling distance", cxxopts::value<double>())
+    ("b,binary", "Write binary file (only for .ply files)", cxxopts::value<bool>()->default_value("false"))
     ("h,help", "Print usage");
 
     if(const auto result{options.parse(argc, argv)}; result.count("help"))
@@ -609,7 +618,8 @@ int main(int argc, char* argv[])
             select = result["select"].as<std::vector<std::string>>();
         }
         const std::vector<NamedSolid> namedSolids = readSolids(inFile);
-        write(outFile, namedSolids, select, sampling);
+        const auto write_binary = result["binary"].as<bool>();
+        write(outFile, namedSolids, select, sampling, write_binary);
     }
     else
     {

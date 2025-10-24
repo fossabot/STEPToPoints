@@ -51,6 +51,7 @@ Usage:
   -s, --select arg    Select solids by name or index (comma seperated list,
                       index starts with 1)
   -g, --sampling arg  Sampling distance
+  -b, --binary        Write binary file (only for .ply files)
   -h, --help          Print usage
 ```
 
