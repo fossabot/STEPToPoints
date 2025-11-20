@@ -47,6 +47,7 @@
 #include "cxxopts.hpp"
 #include "Timer.hpp"
 #include "happly.hpp"
+#include "solid_index_parser.hpp"
 #include <algorithm>
 #include <vector>
 #include <set>
@@ -435,34 +436,6 @@ auto sampleShape(const TopoDS_Shape& shape, const double sampling) -> std::vecto
 }
 
 /**
- * @brief Attempts to parse a string as a solid index (1-based).
- *
- * @param sel The string to parse.
- * @param maxIndex The maximum valid index (size of the namedSolids vector).
- * @return std::optional<size_t> The zero-based index if valid, std::nullopt otherwise.
- */
-auto parseSolidIndex(const std::string& sel, std::size_t maxIndex) -> std::optional<std::size_t>
-{
-    try
-    {
-        if(const auto index = std::stoul(sel);
-            index >= 1 && index <= maxIndex)
-        {
-            return index - 1; // Convert to zero-based
-        }
-    }
-    catch(const std::invalid_argument&)
-    {
-        std::cerr << "Invalid index provided: " << sel << "\n";
-    }
-    catch(const std::out_of_range&)
-    {
-        std::cerr << "Index out of range: " << sel << "\n";
-    }
-    return std::nullopt;
-}
-
-/**
  * @brief Finds a solid by its full name path.
  *
  * @param namedSolids The vector of named solids to search.
@@ -486,13 +459,13 @@ auto findSolidByName(const std::vector<NamedSolid>& namedSolids, const std::stri
 /**
  * @brief Resolves a selection string to a solid.
  *
- * @param sel The selection string (either a name starting with '/' or a 1-based index).
+ * @param sel The selection string (either a name starting with '/' or a 1-based index or range).
  * @param namedSolids The vector of all available named solids.
- * @return const NamedSolid& Reference to the selected solid.
+ * @return std::vector<std::reference_wrapper<const NamedSolid>> List of references to the selected solid(s).
  * @throws std::invalid_argument If the selection cannot be resolved.
  */
 auto resolveSolidSelection(const std::string& sel, const std::vector<NamedSolid>& namedSolids)
-    -> const NamedSolid&
+    -> std::vector<std::reference_wrapper<const NamedSolid>>
 {
     if(sel.empty())
     {
@@ -504,15 +477,21 @@ auto resolveSolidSelection(const std::string& sel, const std::vector<NamedSolid>
     {
         if(const auto found = findSolidByName(namedSolids, sel))
         {
-            return found->get();
+            return {found->get()};
         }
         throw std::invalid_argument{std::format("Could not find solid with name '{}'", sel)};
     }
 
     // Try to parse as index
-    if(const auto index = parseSolidIndex(sel, namedSolids.size()); index.has_value())
+    if(const auto indices = parseSolidIndex(sel, namedSolids.size()); indices.has_value())
     {
-        return namedSolids[index.value()];
+        std::vector<std::reference_wrapper<const NamedSolid>> result;
+        result.reserve(indices->size());
+        for(const auto idx : indices.value())
+        {
+            result.emplace_back(std::cref(namedSolids[idx]));
+        }
+        return result;
     }
 
     throw std::invalid_argument{std::format("Invalid selection: '{}' (not a valid name or index)", sel)};
@@ -550,8 +529,11 @@ auto buildCompoundFromSelections(const std::vector<NamedSolid>& namedSolids,
             if(!sel.empty())
             {
                 const auto& selectedSolid = resolveSolidSelection(sel, namedSolids);
-                std::cout << "Adding solid: " << selectedSolid.name << "\n";
-                builder.Add(compound, selectedSolid.solid);
+                for(const auto& solid : selectedSolid)
+                {
+                    std::cout << "Adding solid: " << solid.get().name << "\n";
+                    builder.Add(compound, solid.get().solid);
+                }
             }
         }
     }
@@ -587,7 +569,7 @@ int main(int argc, char* argv[])
     cxxopts::value<std::string>())
     ("c,content", "List content (solids)")
     ("s,select",
-    "Select solids by name or index (comma seperated list, index starts with 1)",
+    "Select solids by name or index (comma seperated list, index starts with 1) or range index (e.g. 3-7)",
     cxxopts::value<std::vector<std::string>>())
     ("g,sampling", "Sampling distance", cxxopts::value<double>())
     ("b,binary", "Write binary file (only for .ply files)", cxxopts::value<bool>()->default_value("false"))
