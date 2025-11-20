@@ -3,20 +3,23 @@
 [![CI-Build](https://github.com/simogasp/STEPToPoints/actions/workflows/build.yml/badge.svg)](https://github.com/simogasp/STEPToPoints/actions/workflows/build.yml)
 
 ## Description
+
 The program STEPToPoints is a command line utility to generate point clouds out of solids contained in STEP files.
 The supported output file format is xyz (vertex positions and normal vectors).
-A popular viewer for the supported file format is MeshLab (https://www.meshlab.net).
-STEPToPoints is based on OpenCASCADE (https://www.opencascade.com).
-The program uses cxxops (https://github.com/jarro2783/cxxopts) for parsing the command line.
+A popular viewer for the supported file format is MeshLab (<https://www.meshlab.net>).
+STEPToPoints is based on OpenCASCADE (<https://www.opencascade.com>).
+The program uses cxxops (<https://github.com/jarro2783/cxxopts>) for parsing the command line.
 
 ## Requirements
- * CMake installation (https://cmake.org)
- * OpenCASCADE installation (https://old.opencascade.com/content/latest-release, download needs registration)
 
-For OpenCASCADE if it is not found it will be fetched and built via CMake FetchContent. 
+* CMake installation (<https://cmake.org>)
+* OpenCASCADE installation (<https://old.opencascade.com/content/latest-release>, download needs registration)
+
+For OpenCASCADE if it is not found it will be fetched and built via CMake FetchContent.
 For that, you need the following additional libs installed:
- * tcl-dev
- * tk-dev
+
+* tcl-dev
+* tk-dev
 
 On Linux you can install these packages via the package manager, e.g. on ubuntu:
 
@@ -25,6 +28,7 @@ sudo apt-get install tcl-dev tk-dev
 ```
 
 ## Usage
+
 Listing the contents (solids) of a STEP file:
 
 ```bash
@@ -74,4 +78,5 @@ Examples are from the `examples` directory.
 | ![Image Point-Cloud-Basic-Shapes](examples/basic_shapes/point_cloud.png) |
 
 ## Remarks
+
 This code has been tested with an OpenCASCADE 7.5.0 prebuilt binary (`opencascade-7.5.0-vc14-64.exe`) on Windows, as well as OpenCASCADE system packages on openSUSE Linux. With changes in the configuration section in the `CMakeLists.txt` file the build should also work with other OpenCASCADE versions.
